@@ -1,0 +1,9 @@
+[package]
+name = "xcode-log-parse"
+version = "0.1.0"
+authors = [
+  "Danielle Tomlinson <dani@tomlinson.io>",
+  "Samuel Giddins <segiddins@segiddins.me>",
+]
+
+[dependencies]

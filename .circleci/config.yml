@@ -1,0 +1,25 @@
+version: 2.1
+
+workflows:
+  version: 2
+  build-test:
+    jobs:
+      - build
+      - test
+
+executors:
+  rust:
+    docker:
+      - image: circleci/rust:latest
+
+jobs:
+  test:
+    executor: rust
+    steps:
+      - checkout
+      - run: cargo test
+  build:
+    executor: rust
+    steps:
+      - checkout
+      - run: cargo build

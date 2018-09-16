@@ -7,23 +7,39 @@ command_name = { ident }
 target_name = @{ ident ~ (" " ~ ident)* }
 in_target = { "in target: " ~ target_name }
 aside = { "(" ~ in_target ~ ")" }
-command = { command_name ~ " " ~ arg_list ~ (" " ~ aside)? }
+command = { (command_name | path) ~ " " ~ arg_list ~ (" " ~ aside)? }
 
-toplevel_command = _{ command ~ (eoi | newline) }
-nested_command = _{ indentation ~ toplevel_command }
+command_line = _{ command ~ newline }
+nested_command = _{ indentation ~ command_line }
 
 message_type = { "note" | "error" | "warning" }
-word = { (alpha | digit | "_" | "-" | "." | "-" | "\\" | "/" | "(" | ")" | ":")+ }
+word = { (alpha | digit | "_" | "-" | "." | "-" | "\\" | "/" | "(" | ")" | ":" | "=" | "+")+ }
 string = { word ~ (" " ~ word)* }
 message_contents = { string }
 message = { message_type ~ ": " ~ message_contents }
-full_command = { toplevel_command ~ (nested_command | message)* }
+message_line = _{ message ~ newline }
+full_command = { command_line ~ (nested_command | message_line)* ~ commenty_bits? ~ newline }
 
-path_part = { ("_" | "-" | alpha | digit | "\\ " | "." | "-" )* }
+multiline_comment = ${ "/* com.apple.actool.compilation-results */"  }
+comment_line = _{ multiline_comment ~ newline }
+commenty_bits = { comment_line ~ (string ~ newline)+ ~ newline }
+
+path_part = { ("_" | "-" | alpha | digit | "\\ " | "." | "-" | "+")* }
 path = { ("/" ~ path_part)+ }
 path_list = _{ path ~ (" " ~ path)* }
 arg_list = _{ (path | string) ~ (" " ~ (path | string))* }
 indentation = _{ " "{4} }
 
-command_list = _{ full_command* }
-entire = _{ soi ~ full_command+ ~ eoi }
+duration = @{ digit+ ~ "." ~ digit+ ~ " sec" }
+
+build_interrupted = { "INTERRUPTED"}
+build_succeeded = { "SUCCEEDED" }
+build_failed = { "FAILED" }
+action_name = { "BUILD" | "CLEAN" }
+build_status = {
+    "** " ~ action_name ~ " " ~ (build_succeeded | build_failed | build_interrupted) ~ " **" ~
+    (" [" ~ duration ~ "]")?
+}
+
+action = _{ message_line* ~ (newline | full_command*) ~ build_status ~ newline* }
+entire = _{ soi ~ action+ ~ eoi }

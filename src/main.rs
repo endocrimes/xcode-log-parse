@@ -1,6 +1,6 @@
 extern crate clap;
 use clap::{App, Arg};
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read};
 
 pub struct ParserResult {}
 pub struct ParserError {}
@@ -73,23 +73,21 @@ const _GRAMMAR: &'static str = include_str!("xcodebuild.pest"); // relative to t
 struct XcodebuildParser;
 
 fn do_foo() {
-    let input = "CopyStringsFile /Users/segiddins/Development/Square/xcodebuildprofiler/build/Release/Xcode\\ Build\\ Profiler.app/Contents/Resources/en.lproj/InfoPlist.strings /Users/segiddins/Development/Square/xcodebuildprofiler/XcodeBuildProfiler/en.lproj/InfoPlist.strings (in target: Xcode Build Profiler)
-    cd /Users/segiddins/Development/Square/xcodebuildprofiler
-    builtin-copyStrings --validate --outputencoding UTF-16 --outdir /Users/segiddins/Development/Square/xcodebuildprofiler/build/Release/Xcode\\ Build\\ Profiler.app/Contents/Resources/en.lproj -- /Users/segiddins/Development/Square/xcodebuildprofiler/XcodeBuildProfiler/en.lproj/InfoPlist.strings
-note: detected encoding of input file as Unicode (UTF-8)";
-    println!("{}", input);
-
-    let pairs = XcodebuildParser::parse(Rule::entire, input).unwrap_or_else(|e| panic!("{}", e));
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
+ 
+    let pairs = XcodebuildParser::parse(Rule::entire, &input).unwrap_or_else(|e| panic!("{}", e));
 
     // Because ident_list is silent, the iterator will contain idents
     for full_command in pairs {
         match full_command.as_rule() {
-            Rule::full_command => println!("full command"),
-            _ => unreachable!()
+            Rule::full_command => println!("\n\n***full command***\n\n"),
+            Rule::build_status => println!("\n\n***build status***\n\n"),
+            Rule::message => println!("\n\n***top-level message***\n\n"),
+            _ => unreachable!("only full_command expected, got {:?}", full_command.as_rule())
         }
 
         for pair in full_command.into_inner() {
-            
             // A pair is a combination of the rule which matched and a span of input
             println!("Rule:    {:?}", pair.as_rule());
             println!("Span:    {:?}", pair.clone().into_span());

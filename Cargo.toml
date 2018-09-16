@@ -8,3 +8,5 @@ authors = [
 
 [dependencies]
 clap = "2"
+pest = "^1.0"
+pest_derive = "^1.0"

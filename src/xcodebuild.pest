@@ -1,0 +1,29 @@
+alpha = { 'a'..'z' | 'A'..'Z' }
+digit = { '0'..'9' }
+newline = _{ "\r"? ~ "\n" }
+
+ident = { alpha ~ ("_" | "-" | alpha | digit )* }
+command_name = { ident }
+target_name = @{ ident ~ (" " ~ ident)* }
+in_target = { "in target: " ~ target_name }
+aside = { "(" ~ in_target ~ ")" }
+command = { command_name ~ " " ~ arg_list ~ (" " ~ aside)? }
+
+toplevel_command = _{ command ~ (eoi | newline) }
+nested_command = _{ indentation ~ toplevel_command }
+
+message_type = { "note" | "error" | "warning" }
+word = { (alpha | digit | "_" | "-" | "." | "-" | "\\" | "/" | "(" | ")" | ":")+ }
+string = { word ~ (" " ~ word)* }
+message_contents = { string }
+message = { message_type ~ ": " ~ message_contents }
+full_command = { toplevel_command ~ (nested_command | message)* }
+
+path_part = { ("_" | "-" | alpha | digit | "\\ " | "." | "-" )* }
+path = { ("/" ~ path_part)+ }
+path_list = _{ path ~ (" " ~ path)* }
+arg_list = _{ (path | string) ~ (" " ~ (path | string))* }
+indentation = _{ " "{4} }
+
+command_list = _{ full_command* }
+entire = _{ soi ~ full_command+ ~ eoi }

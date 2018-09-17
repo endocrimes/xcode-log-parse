@@ -4,7 +4,7 @@ extern crate xcode_log_parse;
 use clap::{App, Arg};
 use std::io::{self, BufRead};
 
-use xcode_log_parse::common::{Parser, XcodebuildParser};
+use xcode_log_parse::common::{Parser, ParserResult, XcodebuildParser};
 use xcode_log_parse::formatter::{Formatter, PlainTextFormatter};
 
 fn main() {
@@ -27,7 +27,7 @@ fn main() {
         let l = line.unwrap();
         match parser.read_line(&l) {
             Ok(r) => formatter.format(r),
-            Err(_e) => unreachable!(),
+            Err(_e) => formatter.format(ParserResult::NoMatch),
         }
     }
 }

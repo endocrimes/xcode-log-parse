@@ -7,11 +7,10 @@ command_name = { ident | path }
 target_name = @{ ident ~ (" " ~ ident)* }
 in_target = _{ "in target: " ~ target_name }
 aside = { "(" ~ in_target ~ ")" }
-command = { command_name ~ " " ~ arg_list ~ (" " ~ aside)? }
+command = { command_name ~ " " ~ arg_list }
 
-command_line = _{ command ~ newline }
-toplevel_command = { command_line }
-nested_command = { indentation ~ command_line }
+toplevel_command = { command ~ (" " ~ aside)? ~ newline }
+nested_command = { indentation ~ command ~ newline }
 
 message_type = { "note" | "error" | "warning" }
 word = { (alpha | digit | "_" | "-" | "." | "-" | "\\" | "/" | "(" | ")" | ":" | "=" | "+")+ }
@@ -28,7 +27,7 @@ commenty_bits = { comment_line ~ (string ~ newline)+ ~ newline }
 path_part = { ("_" | "-" | alpha | digit | "\\ " | "." | "-" | "+")* }
 path = { ("/" ~ path_part)+ }
 path_list = _{ path ~ (" " ~ path)* }
-arg = { path | string }
+arg = { !aside ~ (path | string) }
 arg_list = _{ arg ~ (" " ~ arg)* }
 indentation = _{ " "{4} }
 

@@ -40,11 +40,12 @@ impl PlainTextFormatter {
                 let first_arg = args.first().unwrap();
                 let first_arg = Path::new(first_arg).file_name().unwrap().to_str().unwrap();
                 self.level += 1;
-                println!("{}{} {}", self.indentation(), pretty_name, first_arg);
+                println!("{}▸ {} {}", self.indentation(), pretty_name, first_arg);
             },
             ParserEvent::EndCommand(_, _) => self.level -= 1,
             ParserEvent::BeginSubCommand(_, _) => self.level += 1,
             ParserEvent::EndSubCommand(_, _) => self.level -= 1,
+            ParserEvent::BeginTarget(name) => println!("🛠  Building {}", name),
         }
     }
 

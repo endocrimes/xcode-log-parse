@@ -1,9 +1,11 @@
 use grammar_parser::{XcodebuildGrammarParser, Rule};
 use pest::iterators::Pair;
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub enum ParserEvent {
     Message(String, String),
+    BeginTarget(String),
     BeginCommand(String, Vec<String>),
     BeginSubCommand(String, Vec<String>),
     EndSubCommand(String, Vec<String>),
@@ -26,6 +28,7 @@ pub trait Parser {
 pub struct XcodebuildParser {
     buffer: String,
     index: usize,
+    targets: HashSet<String>,
 }
 
 impl XcodebuildParser {
@@ -33,24 +36,27 @@ impl XcodebuildParser {
         XcodebuildParser {
             buffer: String::new(),
             index: 0,
+            targets: HashSet::new(),
         }
     }
 
     fn parse_buffer(&mut self) -> Result<ParserResult, ParserError> {
-        let input = self.buffer[self.index..].as_ref();
-        let parsed = XcodebuildGrammarParser::parse_input(input);
-        match parsed {
+        let mut targets = &mut self.targets.clone();
+        let result = match XcodebuildGrammarParser::parse_input(&self.buffer[self.index..]) {
             Ok(pairs) => {
                 self.index = self.buffer.len();
                 Ok(ParserResult::Commands(
-                    pairs.flat_map(|pair| self.transform_pair(pair)).collect()
+                    pairs.flat_map(|pair| self.transform_pair(pair, &mut targets)).collect()
                 ))
             },
             Err(_) => Ok(ParserResult::Continue),
-        }
+        };
+        self.targets = targets.clone();
+
+        result
     }
 
-    fn transform_pair(&self, pair: Pair<'_, Rule>) -> Vec<ParserEvent> {
+    fn transform_pair(&self, pair: Pair<'_, Rule>, targets: &mut HashSet<String>) -> Vec<ParserEvent> {
         let mut events = vec!();
 
         match pair.as_rule() {
@@ -69,10 +75,17 @@ impl XcodebuildParser {
             },
             Rule::full_command => {
                 for inner_pair in pair.into_inner() {
-                    events.append(&mut self.transform_pair(inner_pair));
+                    events.append(&mut self.transform_pair(inner_pair, targets));
                 }
             },
             Rule::toplevel_command => {
+                if let Some(target) = self.find_first(pair.clone(), Rule::target_name) {
+                    if targets.insert(target.clone()) {
+                        events.push(ParserEvent::BeginTarget(
+                            target,
+                        ));
+                    }
+                }
                 let pair = pair.into_inner().find(|pair| pair.as_rule() == Rule::command).unwrap();
                 events.push(ParserEvent::BeginCommand(
                     self.find_first(pair.clone(), Rule::command_name).unwrap(),

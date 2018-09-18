@@ -4,8 +4,8 @@ extern crate xcode_log_parse;
 use clap::{App, Arg};
 use std::io::{self, BufRead};
 
-use xcode_log_parse::common::{Parser, XcodebuildParser};
-use xcode_log_parse::formatter::{Formatter, PlainTextFormatter};
+use xcode_log_parse::common::{Parser, ParserResult, XcodebuildParser};
+use xcode_log_parse::formatter::{Formatter, PlainTextFormatter, LiveCounterFormatter, SummaryCounterFormatter, NullFormatter};
 
 fn main() {
     let matches = App::new("xcode-log-parse")
@@ -27,14 +27,18 @@ fn main() {
         let l = line.unwrap();
         match parser.read_line(&l) {
             Ok(r) => formatter.format(r),
-            Err(_e) => unreachable!(),
+            Err(_e) => formatter.format(ParserResult::NoMatch),
         }
     }
+    formatter.finalize();
 }
 
-fn resolve_formatter(name: &str) -> Result<impl Formatter, &'static str> {
+fn resolve_formatter(name: &str) -> Result<Box<Formatter>, &'static str> {
     match name {
-        "plain" => Ok(PlainTextFormatter::new()),
+        "plain" => Ok(Box::new(PlainTextFormatter::new())),
+        "live-counter" => Ok(Box::new(LiveCounterFormatter::new())),
+        "summary-counter" => Ok(Box::new(SummaryCounterFormatter::new())),
+        "null" => Ok(Box::new(NullFormatter::new())),
         _ => Err("Unknown formatter type"),
     }
 }

@@ -3,14 +3,14 @@ digit = { '0'..'9' }
 newline = _{ "\r"? ~ "\n" }
 
 ident = { alpha ~ ("_" | "-" | alpha | digit )* }
-command_name = { ident }
+command_name = { ident | path }
 target_name = @{ ident ~ (" " ~ ident)* }
-in_target = { "in target: " ~ target_name }
+in_target = _{ "in target: " ~ target_name }
 aside = { "(" ~ in_target ~ ")" }
-command = { (command_name | path) ~ " " ~ arg_list ~ (" " ~ aside)? }
+command = { command_name ~ " " ~ arg_list }
 
-command_line = _{ command ~ newline }
-nested_command = _{ indentation ~ command_line }
+toplevel_command = { command ~ (" " ~ aside)? ~ newline }
+nested_command = { indentation ~ command ~ newline }
 
 message_type = { "note" | "error" | "warning" }
 word = { (alpha | digit | "_" | "-" | "." | "-" | "\\" | "/" | "(" | ")" | ":" | "=" | "+")+ }
@@ -18,7 +18,7 @@ string = { word ~ (" " ~ word)* }
 message_contents = { string }
 message = { message_type ~ ": " ~ message_contents }
 message_line = _{ message ~ newline }
-full_command = { command_line ~ (nested_command | message_line)* ~ commenty_bits? ~ newline }
+full_command = { toplevel_command ~ (nested_command | message_line)* ~ commenty_bits? ~ newline }
 
 multiline_comment = ${ "/* com.apple.actool.compilation-results */"  }
 comment_line = _{ multiline_comment ~ newline }
@@ -27,7 +27,8 @@ commenty_bits = { comment_line ~ (string ~ newline)+ ~ newline }
 path_part = { ("_" | "-" | alpha | digit | "\\ " | "." | "-" | "+")* }
 path = { ("/" ~ path_part)+ }
 path_list = _{ path ~ (" " ~ path)* }
-arg_list = _{ (path | string) ~ (" " ~ (path | string))* }
+arg = { !aside ~ (path | string) }
+arg_list = _{ arg ~ (" " ~ arg)* }
 indentation = _{ " "{4} }
 
 duration = @{ digit+ ~ "." ~ digit+ ~ " sec" }
@@ -35,11 +36,18 @@ duration = @{ digit+ ~ "." ~ digit+ ~ " sec" }
 build_interrupted = { "INTERRUPTED"}
 build_succeeded = { "SUCCEEDED" }
 build_failed = { "FAILED" }
+build_outcome = { build_succeeded | build_failed | build_interrupted }
 action_name = { "BUILD" | "CLEAN" }
 build_status = {
-    "** " ~ action_name ~ " " ~ (build_succeeded | build_failed | build_interrupted) ~ " **" ~
+    "** " ~ action_name ~ " " ~ build_outcome ~ " **" ~
     (" [" ~ duration ~ "]")?
 }
 
 action = _{ message_line* ~ (newline | full_command*) ~ build_status ~ newline* }
-entire = _{ soi ~ action+ ~ eoi }
+thing_we_care_about = _{
+    newline* ~
+    (message_line | full_command | build_status) ~
+    newline* ~
+    eoi
+}
+entire = _{ soi ~ newline* ~ action+ ~ eoi }

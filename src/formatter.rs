@@ -5,6 +5,7 @@ use std::fmt;
 
 pub trait Formatter {
     fn format(&mut self, r: ParserResult);
+    fn finalize(&mut self);
 }
 
 pub struct PlainTextFormatter {
@@ -68,6 +69,8 @@ impl Formatter for PlainTextFormatter {
             ParserResult::NoMatch => println!("NoMatch"),
         }
     }
+
+    fn finalize(&mut self) {}
 }
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
@@ -86,17 +89,12 @@ impl fmt::Display for Counted {
     }
 }
 
-#[derive(Default)]
-pub struct LiveCounterFormatter {
+#[derive(Default, Debug, PartialEq)]
+struct Counter {
     counts: HashMap<Counted, u32>,
-    lines_printed: usize,
 }
-impl LiveCounterFormatter {
-    pub fn new() -> LiveCounterFormatter {
-        LiveCounterFormatter::default()
-    }
-
-    fn update_for_event(&mut self, event: ParserEvent) {
+impl Counter {
+    fn count_event(&mut self, event: ParserEvent) {
         match event {
             ParserEvent::BeginTarget(_) => self.increment(Counted::Target),
             ParserEvent::Message(t, _) => self.increment(Counted::Message(t)),
@@ -110,14 +108,37 @@ impl LiveCounterFormatter {
         self.counts.insert(key, value);
     }
 
+    fn write_lines(&self) {
+        for (key, value) in self.counts.iter() {
+            println!("{}[0K{}: {}", 27 as char, key, value);
+        }
+    }
+
+    fn metrics_len(&self) -> usize {
+        self.counts.len()
+    }
+}
+
+#[derive(Default)]
+pub struct LiveCounterFormatter {
+    counter: Counter,
+    lines_printed: usize,
+}
+impl LiveCounterFormatter {
+    pub fn new() -> LiveCounterFormatter {
+        LiveCounterFormatter::default()
+    }
+
+    fn update_for_event(&mut self, event: ParserEvent) {
+        self.counter.count_event(event)
+    }
+
     fn print(&mut self) {
         if self.lines_printed > 0 {
             print!("{}[{}A", 27 as char, self.lines_printed);
         }
-        for (key, value) in self.counts.iter() {
-            println!("{}[0K{}: {}", 27 as char, key, value);
-        }
-        self.lines_printed = self.counts.len();
+        self.counter.write_lines();
+        self.lines_printed = self.counter.metrics_len();
     }
 }
 impl Formatter for LiveCounterFormatter {
@@ -133,4 +154,51 @@ impl Formatter for LiveCounterFormatter {
             ParserResult::NoMatch => println!("NoMatch"),
         }
     }
+
+    fn finalize(&mut self) {}
+}
+
+#[derive(Default)]
+pub struct SummaryCounterFormatter {
+    counter: Counter,
+}
+impl SummaryCounterFormatter {
+    pub fn new() -> SummaryCounterFormatter {
+        SummaryCounterFormatter::default()
+    }
+
+    fn update_for_event(&mut self, event: ParserEvent) {
+        self.counter.count_event(event)
+    }
+}
+impl Formatter for SummaryCounterFormatter {
+    fn format(&mut self, r: ParserResult) {
+        match r {
+            ParserResult::Commands(names) => {
+                for name in names {
+                    self.update_for_event(name);
+                }
+            }
+            ParserResult::Continue => {},
+            ParserResult::NoMatch => println!("NoMatch"),
+        }
+    }
+
+    fn finalize(&mut self) {
+        self.counter.write_lines()
+    }
+}
+
+#[derive(Default)]
+pub struct NullFormatter {
+}
+impl NullFormatter {
+    pub fn new() -> NullFormatter {
+        NullFormatter::default()
+    }
+}
+
+impl Formatter for NullFormatter {
+    fn format(&mut self, _event: ParserResult) {}
+    fn finalize(&mut self) {}
 }
